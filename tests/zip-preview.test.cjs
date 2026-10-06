@@ -1,0 +1,32 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path');
+const zip=require('../js/zip-preview.cjs');
+const fs=require('node:fs/promises'),os=require('node:os');
+test('Eagle ZIP reader streams local Unicode images and rejects oversized entries',{skip:!process.env.BRIDGE_ZIP_READER},async()=>{
+ const reader=require(process.env.BRIDGE_ZIP_READER),file=path.join(__dirname,'zip-native-fixture.zip');
+ const data=await zip.list(file,reader);
+ assert.equal(data.total,3);assert.equal(data.entries[0].name,'人物/预览.png');
+ assert.match(await zip.image(file,0,reader),/^data:image\/png;base64,iVBOR/);
+ await assert.rejects(zip.image(file,1,reader),/不是支持的图片/);
+ await assert.rejects(zip.image(file,2,reader),/16 MB/);
+ await assert.rejects(zip.image(file,999,reader),/无效 ZIP 条目/);
+ const before=await fs.stat(file),entry=await zip.materialize(file,1,data.entries[1].name,reader);
+ assert.equal(path.basename(entry.path),'content.json');
+ assert.doesNotThrow(()=>JSON.parse(require('fs').readFileSync(entry.path,'utf8')));
+ assert.equal(path.dirname(path.dirname(entry.path)),path.resolve(os.tmpdir()));
+ await entry.release();await entry.release();
+ await assert.rejects(fs.stat(path.dirname(entry.path)),{code:'ENOENT'});
+ const after=await fs.stat(file);assert.equal(after.size,before.size);assert.equal(after.mtimeMs,before.mtimeMs);
+});
+test('ZIP reads Unicode entries and deflated PNG without extracting, rejects non-images and oversized data',{skip:process.platform!=='win32'},async()=>{
+ const file=path.join(__dirname,'zip-fixture.zip'),data=await zip.list(file);
+ assert.equal(data.total,4);assert.equal(data.entries[0].name,'人物/预览.png');
+ assert.equal(data.entries[2].name,'../external.txt');
+ assert.match(await zip.image(file,0),/^data:image\/png;base64,iVBOR/);
+ await assert.rejects(zip.image(file,1));await assert.rejects(zip.image(file,3));await assert.rejects(zip.image(file,999));
+ const entry=await zip.materialize(file,2,data.entries[2].name);
+ assert.equal(path.basename(entry.path),'content.txt','archive traversal name must not become the temporary destination');
+ assert.equal(path.dirname(path.dirname(entry.path)),path.resolve(os.tmpdir()));
+ assert((await fs.stat(entry.path)).isFile());await entry.release();
+ await assert.rejects(fs.stat(path.dirname(entry.path)),{code:'ENOENT'});
+});

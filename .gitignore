@@ -1,0 +1,15 @@
+/tools/
+**/Everything/
+*.exe
+*.dll
+*.db
+*.ini
+.env*
+state.json
+central-diagnostic.json
+node_modules/
+/dist/
+/tests/*.png
+__pycache__/
+*.pyc
+*.log

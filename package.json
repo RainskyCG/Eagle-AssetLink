@@ -1,0 +1,10 @@
+{
+  "name": "eagle-assetlink",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.cjs",
+    "check": "node --check js/core.cjs && node --check js/app.js && node --check js/desktop.cjs && node --check js/native-style.cjs && node --check js/central.cjs && node --check js/browser-ui.js && node --check js/file-operations.cjs && node --check js/tiff-preview.cjs && node --check js/inspector-session.cjs && node --check js/details-panel.cjs && node --check js/zip-preview.cjs && node --check js/native-preview.cjs",
+    "test:inspector": "node tests/inspector-session.check.cjs"
+  }
+}

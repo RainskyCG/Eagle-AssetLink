@@ -1,0 +1,22 @@
+{
+  "id": "303e01e7-dae4-49b7-9a75-8993e1085a6c",
+  "version": "1.0.0",
+  "platform": "win",
+  "arch": "all",
+  "name": "Eagle AssetLink · 定位",
+  "logo": "/logo.png",
+  "keywords": [
+    "Eagle AssetLink",
+    "定位"
+  ],
+  "devTools": false,
+  "main": {
+    "url": "index.html",
+    "width": 520,
+    "height": 300,
+    "minWidth": 420,
+    "minHeight": 250,
+    "resizable": true,
+    "runAfterInstall": false
+  }
+}

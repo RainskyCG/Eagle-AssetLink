@@ -1,0 +1,22 @@
+const fs=require('fs'),path=require('path'),assert=require('node:assert/strict');
+const {pathToFileURL}=require('url');const {chromium}=require(process.env.BRIDGE_PLAYWRIGHT||'playwright');
+(async()=>{const b=fs.readFileSync(process.env.EAGLE_ASAR||'C:/Program Files/Eagle/resources/app.asar');const header=JSON.parse(b.subarray(16,16+b.readUInt32LE(12)));function read(file){let n=header;for(const p of file.split('/'))n=n.files[p];const start=8+b.readUInt32LE(4)+Number(n.offset);return b.subarray(start,start+n.size).toString();}
+const css=require('../js/native-style.cjs').extract(read('app/css/base.css'),read('app/css/app.css'));
+const browser=await chromium.launch({headless:true,channel:'chrome'});try{const page=await browser.newPage();await page.goto(pathToFileURL(path.resolve(__dirname,'../central.html')).href+'?demo=1');await page.waitForSelector('.candidate');await page.addStyleTag({content:css});
+const backgrounds=new Set();
+for(const theme of ['gray','dark','light','lightgray','blue','purple']){
+ const result=await page.evaluate(theme=>{const row=document.querySelector('.candidate');window.dispatchEvent(new CustomEvent('bridge-theme-change',{detail:{theme}}));const s=getComputedStyle(document.body);const probe=document.createElement('div');probe.style.background='var(--color-background-primary)';probe.style.color='var(--color-text-primary)';document.body.append(probe);const n=getComputedStyle(probe);const r={bg:s.backgroundColor,native:n.backgroundColor,text:s.color,nativeText:n.color,same:row===document.querySelector('.candidate')};probe.remove();return r;},theme);
+ const controls=await page.evaluate(()=>{
+ const pick=q=>getComputedStyle(document.querySelector(q));
+ document.querySelector('#browser-search').focus();
+ return {selected:pick('[aria-pressed=true]').backgroundColor,neutral:getComputedStyle(document.body).getPropertyValue('--selected').trim(),button:pick('[data-action=browser-refresh]').backgroundColor,field:pick('#browser-search').backgroundColor,outline:pick('#browser-search').outlineStyle,stripe:pick('.browser-files').backgroundImage};});
+ assert.notEqual(controls.button,'rgba(0, 0, 0, 0)');assert.notEqual(controls.field,'rgba(0, 0, 0, 0)');assert.match(controls.stripe,/repeating-linear-gradient/);assert.equal(controls.outline,'none');
+ assert.equal(await page.locator('#browser-search').getAttribute('placeholder'),'搜索');
+ assert.equal(result.bg,result.native,theme+' background');assert.equal(result.text,result.nativeText,theme+' text');assert.equal(result.same,true);backgrounds.add(result.bg);
+}assert.equal(backgrounds.size,6);
+await page.screenshot({path:path.resolve(__dirname,'theme-central-preview.png')});
+await page.goto(pathToFileURL(path.resolve(__dirname,'../inspector.html')).href+'?demo=1');await page.waitForSelector('[data-action=locate]:not([disabled])');await page.addStyleTag({content:css});
+for(const theme of ['light','lightgray','gray']){await page.evaluate(theme=>window.dispatchEvent(new CustomEvent('bridge-theme-change',{detail:{theme}})),theme);for(const action of ['locate','central-open']){const button=page.locator('[data-action='+action+']');assert.equal(await button.isVisible(),true);const colors=await button.evaluate(e=>{const s=getComputedStyle(e);return [s.color,s.backgroundColor,s.opacity]});assert.notEqual(colors[0],colors[1]);assert.notEqual(colors[1],'rgba(0, 0, 0, 0)');assert.equal(colors[2],'1');}}
+await page.evaluate(()=>window.dispatchEvent(new CustomEvent('bridge-theme-change',{detail:{theme:'light'}})));await page.waitForTimeout(250);await page.evaluate(()=>{document.documentElement.style.background=getComputedStyle(document.body).getPropertyValue('--bg');});await page.screenshot({path:path.resolve(__dirname,'theme-sidebar-preview.png')});
+await page.goto(pathToFileURL(path.resolve(__dirname,'../index.html')).href+'?demo=1');await page.waitForSelector('.preferences');await page.addStyleTag({content:css});for(const theme of ['light','purple']){await page.evaluate(theme=>window.dispatchEvent(new CustomEvent('bridge-theme-change',{detail:{theme}})),theme);assert.equal(await page.locator('.preferences').evaluate(e=>getComputedStyle(e).color),await page.evaluate(()=>getComputedStyle(document.body).color));}
+console.log('Native Eagle theme mapping: six themes, live updates without replacing rows, settings passed');}finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

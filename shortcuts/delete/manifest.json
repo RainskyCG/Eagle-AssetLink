@@ -1,0 +1,22 @@
+{
+  "id": "e62a77a5-34ac-412d-81e1-c0685e07e5e9",
+  "version": "1.0.0",
+  "platform": "win",
+  "arch": "all",
+  "name": "Eagle AssetLink · 同步删除",
+  "logo": "/logo.png",
+  "keywords": [
+    "Eagle AssetLink",
+    "同步删除"
+  ],
+  "devTools": false,
+  "main": {
+    "url": "index.html",
+    "width": 520,
+    "height": 300,
+    "minWidth": 420,
+    "minHeight": 250,
+    "resizable": true,
+    "runAfterInstall": false
+  }
+}

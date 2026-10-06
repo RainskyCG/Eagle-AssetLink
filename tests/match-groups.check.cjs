@@ -1,0 +1,25 @@
+const assert=require('node:assert/strict'),path=require('node:path'),{pathToFileURL}=require('node:url');
+const {chromium}=require(process.env.BRIDGE_PLAYWRIGHT||'playwright');
+(async()=>{const browser=await chromium.launch({headless:true,channel:'chrome'});try{
+ const page=await browser.newPage();await page.addInitScript(()=>{let factory;Object.defineProperty(window,'bridgeDemo',{set:v=>factory=v,get:()=>()=>{const e=factory();window.fixture=e;window.queries=0;
+ e.C.snapshot=async p=>({path:p,type:p.includes('.')?'file':'folder'});
+ e.C.searchNames=async()=>{queries++;return {rows:[{path:'D:\\A\\model.blend',type:'file'},{path:'D:\\A\\model.png',type:'file'},{path:'E:\\B\\model.blend',type:'file'}],issues:[]};};
+ e.C.listAssetFolder=async row=>({dir:row.path,rows:[{path:row.path+'\\model.blend',type:'file'},{path:row.path+'\\model.png',type:'file'}]});return e;}});});
+ await page.goto(pathToFileURL(path.resolve(__dirname,'../inspector.html')).href+'?demo=1');await page.waitForSelector('[data-action=candidates]');
+ await page.locator('[data-action=candidates]').click();assert.equal(await page.locator('.match-group').count(),2);assert.equal(await page.locator('.match-group .candidate').count(),4);
+ await page.locator('[data-select-group="1"]').click();assert.equal(await page.locator('.match-group').count(),0);assert.equal(await page.locator('[data-folder-entry]').count(),2);
+ assert.equal(await page.evaluate(async()=>(await fixture.store.read()).bindings.DEMO.path),'E:\\B');assert.equal(await page.evaluate(async()=>(await fixture.store.read()).bindings.DEMO.locked),true);
+ await page.locator('[data-action=locate]').click();assert.equal(await page.evaluate(()=>queries),2);assert.equal(await page.locator('.match-group').count(),0);
+ await page.locator('[data-action=choose-other-group]').click();assert.equal(await page.locator('.match-group').count(),2);
+ await page.locator('[data-select-group="0"]').click();assert.equal(await page.evaluate(async()=>(await fixture.store.read()).bindings.DEMO.path),'D:\\A');
+ await page.keyboard.press('Control+Alt+l');await page.waitForFunction(()=>queries===3);
+ await page.evaluate(async()=>{await fixture.store.unbind('DEMO','DEMO');fixture.C.searchNames=async()=>({rows:[{path:'D:\\A\\model.blend',type:'file'},{path:'D:\\A\\model.png',type:'file'}],issues:[]});});
+ await page.locator('[data-action=locate]').click();
+ assert.equal(await page.locator('.match-group').count(),1);
+ assert.equal(await page.locator('[data-select-group]').count(),0,'same-directory matches need no choice');
+ assert.equal(await page.locator('.match-group .candidate').count(),2);
+ await page.evaluate(()=>{fixture.C.searchNames=async()=>({rows:[{path:'D:\\A',type:'folder'}],issues:[]});});
+ await page.locator('[data-action=locate]').click();
+ assert.equal(await page.locator('[data-select-group]').count(),0,'single match needs no choice');
+ console.log('Directory groups, same-directory deduplication, explicit locking, re-selection, fresh queries and locate shortcut passed.');
+}finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});
